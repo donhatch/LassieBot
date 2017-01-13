@@ -1,0 +1,182 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/fill">
+    <LinearLayout 
+        style="@style/fill"
+        android:padding="5dp"
+        android:orientation="vertical" >
+        
+        <!-- Emergency Contacts -->
+        <RelativeLayout
+            style="@style/wide">
+            <LinearLayout
+                style="@style/wrap"
+                android:layout_marginTop="10dip"
+                android:background="@drawable/border" >
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="10dp"
+                    android:layout_weight="1.21"
+                    android:orientation="vertical" >
+                    <TextView
+                        style="@style/wrap"
+                        android:text="Put the letters 'ICE:' at the beginning of the names of your emergency contacts, then come back and click refresh."
+                        android:textSize="14sp" />
+                    <LinearLayout
+                        style="@style/wrap"
+                        android:orientation="horizontal" >
+                        <LinearLayout
+                            style="@style/wrap"
+                            android:orientation="vertical" >
+                            <Button
+                                android:id="@+id/refresh"
+                                android:background="@drawable/btn_light"
+                                style="@style/wrap"
+                                android:textColor="#fff"
+                                android:text="Refresh" />
+                        </LinearLayout>
+                        <TextView
+                            android:id="@+id/contacts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            style="@style/SuperliminalVariableTextViewStyle"
+                            android:textSize="16sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentTop="true"
+                android:layout_marginLeft="28dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                style="@style/SuperliminalLabelTextViewStyle"
+                android:text="Emergency Contacts" />
+        </RelativeLayout>
+        
+        <!-- Time-out period -->
+        <RelativeLayout
+            style="@style/wide">
+            <RelativeLayout
+                style="@style/wide"
+                android:layout_marginTop="10dip"
+                android:padding="10dip"
+                android:background="@drawable/border" 
+                android:orientation="horizontal">
+                <!-- This injects an IntSpinner instance. -->
+                <include
+                    android:id="@+id/timeout_spinner"
+                    style="@style/wrap"
+                    android:layout_alignParentRight="true"
+                    layout="@layout/int_spinner" />
+                <TextView
+                    android:id="@+id/timeout_description"
+                    style="@style/wrap"
+                    android:layout_alignParentLeft="true"
+                    android:layout_toLeftOf="@id/timeout_spinner"
+                    android:text="Hours of inactivity before alerting your emergency contacts."
+                    android:textSize="14sp" />
+            </RelativeLayout> <!-- Border -->
+            <TextView
+                style="@style/SuperliminalLabelTextViewStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentTop="true"
+                android:layout_marginLeft="28dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:text="Timeout Hours" />
+        </RelativeLayout>
+        
+        <View 
+            android:layout_width="fill_parent"
+            android:layout_height="20dp" />
+    
+        <!-- Master On/Off button -->
+        <ToggleButton
+            android:id="@+id/toggle"
+            android:background="@drawable/round_power_button_selector"
+            android:textOn=""
+            android:textOff=""
+            android:layout_width="219dp"
+            android:layout_height="82dp"
+            android:layout_gravity="center"
+            android:soundEffectsEnabled="true"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:typeface="serif"
+            android:shadowColor="#666"
+            android:shadowRadius="2.5"
+            android:shadowDx="3"
+            android:shadowDy="3"/>
+        
+        <!-- Configure & Test -->
+        <CheckBox
+            android:id="@+id/calibrate"
+            style="@style/wrap"
+            android:textColor="#fff"
+            android:textOn="Calibrate"/>
+        <RelativeLayout
+            android:id="@+id/test_controls"
+            style="@style/wide">
+            <LinearLayout
+                style="@style/wide"
+                android:layout_marginTop="10dip"
+                android:orientation="vertical"
+                android:background="@drawable/border" >
+                <LinearLayout
+                    style="@style/fill"
+                    android:layout_margin="10dp"
+                    android:orientation="vertical">
+                    <LinearLayout
+                        android:visibility="gone"
+                        android:orientation="horizontal"
+                        style="@style/wide">
+                        <TextView
+                            android:text="Accelerometer Sensitivity "
+                            style="@style/wrap" />
+                        <SeekBar
+                            android:id="@+id/accel_threshold"
+                            style="@style/wide"
+                            android:max="100"
+                            android:progress="50" />
+                    </LinearLayout>
+                    <LinearLayout
+                        android:id="@+id/gyro_controls"
+                        android:orientation="horizontal"
+                        style="@style/wide">
+                        <TextView
+                            android:text="Gyro Sensitivity "
+                            style="@style/wrap" />
+                        <SeekBar
+                            android:id="@+id/gyro_threshold"
+                            style="@style/wide" 
+                            android:max="100"
+                            android:progress="50"/>
+                    </LinearLayout>
+                    <RelativeLayout
+                            android:orientation="horizontal"
+                            style="@style/wide">
+                        <CheckBox
+                                android:id="@+id/disable_while_charging"
+                                style="@style/wrap"
+                                android:layout_alignParentLeft="true"
+                                android:textColor="#fff"
+                                android:text="Off when charging"/>
+                        <Button
+                            android:id="@+id/test"
+                            android:background="@drawable/btn_light"
+                            style="@style/wrap"
+                            android:layout_alignParentRight="true"
+                            android:textColor="#fff"
+                            android:text="Send Test Alert" />
+                    </RelativeLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </RelativeLayout>
+        
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.superliminal.android.lassiebot.IntSpinner 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="160dip"
+    android:layout_height="50dip"
+    android:background="#0000"
+    android:orientation="horizontal" >
+    <ImageButton
+        android:id="@+id/arrow_left"
+        android:layout_gravity="center"
+        android:layout_width="60dip"
+        android:layout_height="60dip"
+        android:scaleType="fitXY"
+        android:src="@drawable/arrow_left"
+        android:background="#0000" />
+    <TextView 
+        android:id="@+id/val"
+        android:layout_gravity="center"
+        android:text="1"
+        style="@style/SuperliminalVariableTextViewStyle"
+        android:textSize="38sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:inputType="numberDecimal" />
+    <ImageButton
+        android:id="@+id/arrow_right"
+        android:layout_gravity="center"
+        android:layout_width="60dip"
+        android:layout_height="60dip"
+        android:scaleType="fitXY"
+        android:src="@drawable/arrow_right"
+        android:background="#0000"/>
+</com.superliminal.android.lassiebot.IntSpinner>
