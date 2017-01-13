@@ -77,7 +77,8 @@ public class LassieBotActivity extends Activity {
         // Setting a dummy click listener enables default button click sound. Go figure.
         toggle.setOnClickListener(new OnClickListener() {
             @Override
-            public void onClick(View v) {}
+            public void onClick(View v) {
+            }
         });
         // Listen for service running state changes. Most of the time the changes come from
         // this Activity when the user toggles the start/stop button, but the service also
@@ -114,13 +115,16 @@ public class LassieBotActivity extends Activity {
         class SeekAdapter implements SeekBar.OnSeekBarChangeListener {
 
             @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {}
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+            }
 
             @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
 
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
         }
 //        LassieBotService.ACCELEROMETER_THRESHOLD = mPrefs.getFloat(LassieBotService.PREFS_KEY_ACCEL_THRESHOLD, (float) LassieBotService.ACCELEROMETER_THRESHOLD_DEFAULT);
 //        final SeekBar accelThresh = (SeekBar) findViewById(R.id.accel_threshold);
