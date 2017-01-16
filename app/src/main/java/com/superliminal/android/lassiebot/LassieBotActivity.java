@@ -14,6 +14,8 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.Handler;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.View;
@@ -35,9 +37,169 @@ public class LassieBotActivity extends Activity {
     private boolean mHaveICEs;
     private Intent mServiceIntent;
 
+    private TextView mCountdownTextView;
+    private BetterCountDownTimer mCountDownTimer = null;
+
+
+    //
+    // Empirically, if I set a CountDownTimer with millisTilDone=10*1000 and intervalMillis = 1000,
+    // I get the following extremely lame sequence of callbacks:
+    // .015 seconds after created:
+    //    onTick(9970)
+    //    onTick(8970)
+    //    onTick(7969)
+    //    onTick(6969)
+    //    onTick(5968)
+    //    onTick(4968)
+    //    onTick(3968)
+    //    onTick(2967)
+    //    onTick(1966)
+    // and then 1.8 seconds or so later:
+    //    onFinish()
+    // And if I start it with millisTilDone=10500 and intervalMillis=1000,
+    // it's something like:
+    //    onTick(9464)
+    //    onTick(8464)
+    //    ...
+    //    onTick(1462)
+    // and then 1.46 seconds or so later:
+    //    onFinish()
+
+    // The drift is lame, the 1.8 sec final delay is lame,
+    // and I want the ability to start at a desired alignment and stay there.
+    // CountDownTimer is lame:
+    // http://stackoverflow.com/questions/8857590/android-countdowntimer-skips-last-ontick?rq=1
+    // So here's a better one.
+    // Guarantees:
+    //    - onTick(numIntervalsRemaining) will get called exactly the number of times
+    //      predicted on start, at the tick times chosen at start;
+    //      in particular, the final call will be onTick(0) at the target time.
+    //    - unless cancelled.
+    private static abstract class BetterCountDownTimer
+    {
+        private Handler mHandler;
+        private Runnable mRunnable;
+        private boolean mStarted;
+
+        // these are set on start
+        private long mTargetTimeMillis;
+        private long mIntervalMillis;
+        private long mTicksRemaining;
+
+        public BetterCountDownTimer()
+        {
+            System.out.println("        in BetterCountDownTimer ctor");
+            mHandler = new Handler();
+            mRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    --mTicksRemaining;
+                    long numIntervalsRemaining = mTicksRemaining;
+                    onTick(numIntervalsRemaining);
+                    if (mTicksRemaining > 0)
+                    {
+                        long nextTickTimeMillis = mTargetTimeMillis - (mTicksRemaining-1)*mIntervalMillis;
+                        long nowMillis = System.currentTimeMillis();
+                        long millisTilNextTick = Math.max(0, nextTickTimeMillis - nowMillis);
+                        System.out.println("          nextTickTimeMillis = "+nextTickTimeMillis);
+                        System.out.println("          calling mHandler.postDelayed(millisTilNextTick="+millisTilNextTick+")");
+                        mHandler.postDelayed(mRunnable, millisTilNextTick);
+                    }
+                }
+            };
+            mStarted = false;
+            System.out.println("        out BetterCountDownTimer ctor");
+        }
+        // Takes millisTilDone rather than a target time,
+        // so that the number of calls will be completely predictable
+        // even if the starting time is close to a timing interval boundary.
+        final void start(long millisTilDone, long intervalMillis)
+        {
+            long nowMillis = System.currentTimeMillis(); // as close to calling time as possible
+
+            System.out.println("        in BetterCountDownTimer.start");
+            System.out.println("          millisTilDone = "+millisTilDone);
+            System.out.println("          intervalMillis = "+intervalMillis);
+
+            if (mStarted)
+                throw new AssertionError("BetterCountDownTimer.started multiple times concurrently!");
+            mStarted = true;
+
+            mTargetTimeMillis = nowMillis+millisTilDone;
+            mIntervalMillis = intervalMillis;
+            System.out.println("          mTargetTimeMillis = "+mTicksRemaining);
+
+            // E.g.
+            //  millisTilDone == 2*mIntervalMillis+1  -> mTicksRemaining = 3
+            //  millisTilDone == 2*mIntervalMillis    -> mTicksRemaining = 3
+            //  millisTilDone == 2*mIntervalMillis-1  -> mTicksRemaining = 2
+            //  ...
+            //  millisTilDone ==   mIntervalMillis+1  -> mTicksRemaining = 2
+            //  millisTilDone ==   mIntervalMillis    -> mTicksRemaining = 2
+            //  millisTilDone ==   mIntervalMillis-1  -> mTicksRemaining = 1
+            //  ...
+            //  millisTilDone ==   0                  -> mTicksRemaining = 1
+            mTicksRemaining = millisTilDone / mIntervalMillis + 1;
+
+            long nextTickTimeMillis = mTargetTimeMillis - (mTicksRemaining-1)*mIntervalMillis;
+            long millisTilNextTick = Math.max(0, nextTickTimeMillis - nowMillis);
+
+            System.out.println("          mTicksRemaining = "+mTicksRemaining);
+            System.out.println("          nextTickTimeMillis = "+nextTickTimeMillis);
+            System.out.println("          calling mHandler.postDelayed(millisTilNextTick="+millisTilNextTick+")");
+            mHandler.postDelayed(mRunnable, millisTilNextTick);
+
+            System.out.println("        out BetterCountDownTimer.start");
+        }
+        abstract void onTick(long invervalsRemaining);
+        // It's ok to cancel even if it's not running.
+        final void cancel()
+        {
+            System.out.println("        in BetterCountDownTimer.cancel");
+            if (mStarted)
+            {
+                System.out.println("          actually removing callbacks!");
+                mHandler.removeCallbacksAndMessages(null);
+                System.out.println("          actually removing callbacks!");
+                mStarted = false;
+            }
+            System.out.println("        out BetterCountDownTimer.cancel");
+        }
+    } // class BetterCountDownTimer
+
     protected void onResume() {
         System.out.println("    in LassieBotActivity.onResume");
         super.onResume();
+        // Activity became visible.
+        // Enable the displayed countdown timer.
+        mCountDownTimer = new BetterCountDownTimer() {
+            @Override
+            public void onTick(long numIntervalsRemaining)
+            {
+                System.out.println("    in countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
+                // HHH:MM:SS
+                mCountdownTextView.setText(String.format("%02d:%02d:%02d",
+                                                         numIntervalsRemaining/(60*60),
+                                                         numIntervalsRemaining/(60)%60,
+                                                         numIntervalsRemaining%60));
+                System.out.println("    out countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
+            }
+        };
+        long alarmTimeMillis = mPrefs.getLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, 0);
+        long nowMillis = System.currentTimeMillis();
+        long millisTilDone = alarmTimeMillis - nowMillis;
+
+        if (false)
+        {
+            // Can uncomment one of the following to test
+            //long millisTilDone = 10000; // 10 seconds
+            //long millisTilDone = 10500; // 10.5 seconds
+            //long millisTilDone = 20500; // 20.5 seconds
+        }
+
+        long targetTimeMillis = nowMillis + millisTilDone;
+        long intervalMillis = 1000; // 1 second, of course
+        mCountDownTimer.start(millisTilDone, intervalMillis);
         System.out.println("    out LassieBotActivity.onResume");
     } // onPause
 
@@ -45,6 +207,13 @@ public class LassieBotActivity extends Activity {
     protected void onPause() {
         System.out.println("    in LassieBotActivity.onPause");
         super.onPause();
+        // Activity is no longer visible.
+        // Disable the displayed countdown timer.
+        if (mCountDownTimer != null) {
+            mCountDownTimer.cancel();
+            mCountDownTimer = null;
+        }
+        mCountdownTextView.setText(""); // so it doesn't show up with stale value next time
         System.out.println("    out LassieBotActivity.onPause");
     } // onPause
 
@@ -55,6 +224,7 @@ public class LassieBotActivity extends Activity {
         mServiceIntent = new Intent(LassieBotActivity.this, LassieBotService.class);
         mPrefs = getSharedPreferences(LassieBotService.PREFS_NAME, LassieBotService.PREFS_SHARE_MODE);
         setContentView(R.layout.lert);
+        mCountdownTextView = (TextView) findViewById(R.id.countdown);
         final IntSpinner intSpinner = (IntSpinner) findViewById(R.id.timeout_spinner);
         int timeout_hours = mPrefs.getInt(LassieBotService.PREFS_KEY_TIMEOUT_HOURS, LassieBotService.DEFAULT_TIMEOUT_HOURS);
         boolean configuring = mPrefs.getBoolean(LassieBotService.PREFS_KEY_CONFIGURE, false);
@@ -111,11 +281,32 @@ public class LassieBotActivity extends Activity {
             public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
                 System.out.println("        in onSharedPreferenceChanged");
 
+                // CBB: get this the hell out of here. communicate via broadcast messages or something, not a shared preference!
+                if(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS.equals(key))
+                {
+                    System.out.println("          PREFS_KEY_ALARMTIME_MILLIS: reset countdown display");
+
+                    long nowMillis = System.currentTimeMillis();
+                    long alarmTimeMillis = prefs.getLong(key, nowMillis);
+                    long millisTilAlarm = alarmTimeMillis - nowMillis;
+                    long secondsTilAlarmRoundedUp = (millisTilAlarm+999)/1000;
+                    if (mCountDownTimer != null) // if between onResume() and onPause()
+                    {
+                        mCountDownTimer.cancel();
+                        mCountDownTimer.start(millisTilAlarm, 1000);
+
+                        // HHH:MM:SS
+                        mCountdownTextView.setText(String.format("%02d:%02d:%02d",
+                                                                 secondsTilAlarmRoundedUp/(60*60),
+                                                                 secondsTilAlarmRoundedUp/(60)%60,
+                                                                 secondsTilAlarmRoundedUp%60));
+                    }
+                }
+
                 if(!LassieBotService.PREFS_KEY_RUNNING.equals(key))
                     return;
                 System.out.println("          PREFS_KEY_RUNNING: toggling running indicator");
                 toggle.setChecked(prefs.getBoolean(key, false));
-
                 System.out.println("        out onSharedPreferenceChanged");
             }
         };

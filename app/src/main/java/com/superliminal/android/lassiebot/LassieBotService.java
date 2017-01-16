@@ -25,6 +25,7 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.telephony.SmsManager;
 import android.util.Log;
+import android.view.OrientationListener;
 
 import java.util.HashSet;
 import java.util.List;
@@ -43,7 +44,8 @@ public class LassieBotService extends Service {
         PREFS_KEY_GYRO_THRESHOLD = "gyro threshold val",
         PREFS_KEY_ICE_PHONES = "Phones",
         PREFS_KEY_ICE_ADDRESSES = "Emails",
-        PREFS_KEY_TEST = "do test";
+        PREFS_KEY_TEST = "do test",
+        PREFS_KEY_ALARMTIME_MILLIS = "time dead man switch will go off";
 
     static final String ICE_PREFIX = "ICE:";
     static final String TAG = "lert";
@@ -195,9 +197,10 @@ public class LassieBotService extends Service {
             long nowNanos = System.nanoTime(); // as soon as possible
             if (mVerboseLevel >= 2) System.out.println("        in onSensorChanged");
             long nowTimestampNanos = event.timestamp;
-            long now = System.currentTimeMillis(); // TODO: get it from event instead, I think
+            long now = System.currentTimeMillis();
             long nanosSinceLastShake = nowNanos - mLastShakeNanos;
             long dur = now - mLastStrongShake;
+            if (mVerboseLevel >= 2) System.out.println("          SENSOR_DELAY_NORMAL = "+SensorManager.SENSOR_DELAY_NORMAL);
             if (mVerboseLevel >= 2) System.out.println("          "+nanosSeparated(nowNanos-mLastShakeNanos)+" seconds since last shake from timestamp");
             if (mVerboseLevel >= 2) System.out.println("          "+nanosSeparated(nowTimestampNanos-mLastShakeTimestampNanos)+" seconds since last shake from System.nanoTime()");
             if (mVerboseLevel >= 2) System.out.println("          dur = "+dur+" (since last strong shake)");
@@ -254,6 +257,10 @@ public class LassieBotService extends Service {
         // one possible reason could be a race condition where an old timer was not canceled
         // before being replaced, So long as this is the only place that creates the timers,
         // synchronizing on them should disallow that error.
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, PREFS_SHARE_MODE); // CBB: put this in a member
+        long alarmTimeMillis = System.currentTimeMillis() + TIMEOUT_MILLIS;
+        prefs.edit().putLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, alarmTimeMillis).commit();
 
         synchronized(deadManSwitch) {
             deadManSwitch.cancel();
@@ -354,7 +361,7 @@ public class LassieBotService extends Service {
         String activity_name = getString(getApplicationInfo().labelRes);
         Notification notice = new Notification(R.drawable.dog_robot_orig48,
             activity_name + " activated", System.currentTimeMillis());
-        notice.setLatestEventInfo(this, activity_name, "is on the job!", pendIntent);
+        notice.setLatestEventInfo(this, activity_name, "is on the job, yo!", pendIntent);
         notice.flags |= Notification.FLAG_NO_CLEAR;
         startForeground(LERT_SERVICE_ID, notice);
 
