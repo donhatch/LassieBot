@@ -77,7 +77,7 @@ public class LassieBotService extends Service {
         "Their mobile device has not moved in a long time. " +
         "You should contact them now. ";
 
-    private static final int mVerboseLevel = 1;
+    private static final int mVerboseLevel = 1; // 1: just major control functions. 2: and onSensorChanged (a lot of verbosity)
 
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {

@@ -44,7 +44,7 @@ public class LassieBotActivity extends Activity {
     //
     // Empirically, if I set a CountDownTimer with millisTilDone=10*1000 and intervalMillis = 1000,
     // I get the following extremely lame sequence of callbacks:
-    // .015 seconds after created:
+    // Starting .015 seconds after created:
     //    onTick(9970)
     //    onTick(8970)
     //    onTick(7969)
@@ -54,27 +54,29 @@ public class LassieBotActivity extends Activity {
     //    onTick(3968)
     //    onTick(2967)
     //    onTick(1966)
-    // and then 1.8 seconds or so later:
+    // and then 1.8 seconds or so later (!?):
     //    onFinish()
-    // And if I start it with millisTilDone=10500 and intervalMillis=1000,
-    // it's something like:
-    //    onTick(9464)
-    //    onTick(8464)
-    //    ...
-    //    onTick(1462)
-    // and then 1.46 seconds or so later:
-    //    onFinish()
-
+    // The 1.8 sec delay at the end is confirmed here:
+    //    http://stackoverflow.com/questions/8857590/android-countdowntimer-skips-last-ontick?rq=1
+    //
     // The drift is lame, the 1.8 sec final delay is lame,
-    // and I want the ability to start at a desired alignment and stay there.
-    // CountDownTimer is lame:
-    // http://stackoverflow.com/questions/8857590/android-countdowntimer-skips-last-ontick?rq=1
-    // So here's a better one.
+    // the incomprehensible contract is lame,
+    // and I want the ability to start aligned at a multiple of interval
+    // prior to the target and stay there.
+    //
+    // So here's a better countdown timer.
+    // The onTick callback gets called with the number of ticks remaining
+    // after the current one.
     // Guarantees:
-    //    - onTick(numIntervalsRemaining) will get called exactly the number of times
-    //      predicted on start, at the tick times chosen at start;
-    //      in particular, the final call will be onTick(0) at the target time.
-    //    - unless cancelled.
+    //    - onTick() will be called with a strictly decreasing series of integers
+    //    - the first onTick() gets called immediately
+    //    - subsequent onTick()s will be called as close as possible to each
+    //      integer multiple of intervalMillis before the target time.
+    //    - onTick(0) is guaranteed to be called, as close as possible to the target time
+    //      (unless cancelled)
+    //    - if the process is delayed such that an onTick() would be called
+    //      late by an interval or more, it will be discarded instead
+    //      (unless it's the last tick; onTick(0) is guaranteed to be called).
     private static abstract class BetterCountDownTimer
     {
         private Handler mHandler;
@@ -93,54 +95,82 @@ public class LassieBotActivity extends Activity {
             mRunnable = new Runnable() {
                 @Override
                 public void run() {
+                    System.out.println("            in BetterCountDownTimer mRunnable.run");
+                    System.out.println("              decrementing mTicksRemaining "+mTicksRemaining+" -> "+(mTicksRemaining-1));
+                    // Must decrement by at least one, per contract
                     --mTicksRemaining;
-                    long numIntervalsRemaining = mTicksRemaining;
-                    onTick(numIntervalsRemaining);
+                    if (mTicksRemaining > 0)
+                    {
+                        // If we've been delayed by a whole interval or more,
+                        // and we proceed naively, then onTick will get called
+                        // more than once consecutively, potentially
+                        // thousands of times. In that case, jump directly
+                        // to the last of them.
+                        // This is the right thing to do if the timer is being used
+                        // to update a countdown display.
+                        long nowMillis = System.currentTimeMillis();
+                        long millisTilDone = mTargetTimeMillis - nowMillis;
+                        // Same logic as in start(), but one less.
+                        // TODO(donhatch): this case hasn't beeen tested, and maybe could be made simpler.
+                        long ticksRemainingAdjusted = (millisTilDone+mIntervalMillis-1) / mIntervalMillis;
+                        if (ticksRemainingAdjusted < mTicksRemaining
+                         && ticksRemainingAdjusted >= 0)
+                        {
+                            System.out.println("              delayed! decrementing mTicksRemaining "+mTicksRemaining+" -> "+ticksRemainingAdjusted);
+                            mTicksRemaining = ticksRemainingAdjusted;
+                        }
+                    }
+                    onTick(mTicksRemaining);
                     if (mTicksRemaining > 0)
                     {
                         long nextTickTimeMillis = mTargetTimeMillis - (mTicksRemaining-1)*mIntervalMillis;
+                        // Take yet another "now" snapshot,
+                        // as close to the postDelayed() as we can get.
                         long nowMillis = System.currentTimeMillis();
                         long millisTilNextTick = Math.max(0, nextTickTimeMillis - nowMillis);
                         System.out.println("          nextTickTimeMillis = "+nextTickTimeMillis);
                         System.out.println("          calling mHandler.postDelayed(millisTilNextTick="+millisTilNextTick+")");
                         mHandler.postDelayed(mRunnable, millisTilNextTick);
                     }
+                    System.out.println("            out BetterCountDownTimer mRunnable.run");
                 }
             };
             mStarted = false;
             System.out.println("        out BetterCountDownTimer ctor");
-        }
-        // Takes millisTilDone rather than a target time,
-        // so that the number of calls will be completely predictable
-        // even if the starting time is close to a timing interval boundary.
-        final void start(long millisTilDone, long intervalMillis)
+        } // ctor
+
+        final void start(long targetTimeMillis, long intervalMillis)
         {
-            long nowMillis = System.currentTimeMillis(); // as close to calling time as possible
-
             System.out.println("        in BetterCountDownTimer.start");
-            System.out.println("          millisTilDone = "+millisTilDone);
+            System.out.println("          targetTimeMillis = "+targetTimeMillis);
             System.out.println("          intervalMillis = "+intervalMillis);
-
             if (mStarted)
                 throw new AssertionError("BetterCountDownTimer.started multiple times concurrently!");
             mStarted = true;
 
-            mTargetTimeMillis = nowMillis+millisTilDone;
+            mTargetTimeMillis = targetTimeMillis;
             mIntervalMillis = intervalMillis;
-            System.out.println("          mTargetTimeMillis = "+mTicksRemaining);
 
-            // E.g.
-            //  millisTilDone == 2*mIntervalMillis+1  -> mTicksRemaining = 3
-            //  millisTilDone == 2*mIntervalMillis    -> mTicksRemaining = 3
-            //  millisTilDone == 2*mIntervalMillis-1  -> mTicksRemaining = 2
-            //  ...
-            //  millisTilDone ==   mIntervalMillis+1  -> mTicksRemaining = 2
-            //  millisTilDone ==   mIntervalMillis    -> mTicksRemaining = 2
-            //  millisTilDone ==   mIntervalMillis-1  -> mTicksRemaining = 1
-            //  ...
-            //  millisTilDone ==   0                  -> mTicksRemaining = 1
-            mTicksRemaining = millisTilDone / mIntervalMillis + 1;
-
+            long nowMillis = System.currentTimeMillis();
+            long millisTilDone = mTargetTimeMillis - nowMillis;
+            if (millisTilDone < 0)
+                mTicksRemaining = 1; // guarantee at least one tick, no matter what
+            else
+            {
+                // E.g.
+                //  millisTilDone == 2*mIntervalMillis+1  -> mTicksRemaining = 4
+                //  millisTilDone == 2*mIntervalMillis    -> mTicksRemaining = 3
+                //  millisTilDone == 2*mIntervalMillis-1  -> mTicksRemaining = 3
+                //  ...
+                //  millisTilDone ==   mIntervalMillis+1  -> mTicksRemaining = 3
+                //  millisTilDone ==   mIntervalMillis    -> mTicksRemaining = 2
+                //  millisTilDone ==   mIntervalMillis-1  -> mTicksRemaining = 2
+                //  ...
+                //  millisTilDone ==   1                  -> mTicksRemaining = 2
+                //  millisTilDone ==   0                  -> mTicksRemaining = 1
+                // I.e. divide rounding up, and add 1.
+                mTicksRemaining = millisTilDone < 0 ? 1 : (millisTilDone+mIntervalMillis-1) / mIntervalMillis + 1;
+            }
             long nextTickTimeMillis = mTargetTimeMillis - (mTicksRemaining-1)*mIntervalMillis;
             long millisTilNextTick = Math.max(0, nextTickTimeMillis - nowMillis);
 
@@ -148,11 +178,10 @@ public class LassieBotActivity extends Activity {
             System.out.println("          nextTickTimeMillis = "+nextTickTimeMillis);
             System.out.println("          calling mHandler.postDelayed(millisTilNextTick="+millisTilNextTick+")");
             mHandler.postDelayed(mRunnable, millisTilNextTick);
-
             System.out.println("        out BetterCountDownTimer.start");
-        }
-        abstract void onTick(long invervalsRemaining);
-        // It's ok to cancel even if it's not running.
+        } // start
+
+        // It's ok to cancel even if not running.
         final void cancel()
         {
             System.out.println("        in BetterCountDownTimer.cancel");
@@ -164,44 +193,52 @@ public class LassieBotActivity extends Activity {
                 mStarted = false;
             }
             System.out.println("        out BetterCountDownTimer.cancel");
-        }
-    } // class BetterCountDownTimer
+        } // cancel
+
+        abstract void onTick(long invervalsRemaining);
+
+    } // class BetterCountdownTimer
 
     protected void onResume() {
         System.out.println("    in LassieBotActivity.onResume");
         super.onResume();
         // Activity became visible.
         // Enable the displayed countdown timer.
-        mCountDownTimer = new BetterCountDownTimer() {
-            @Override
-            public void onTick(long numIntervalsRemaining)
-            {
-                System.out.println("    in countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
-                // HHH:MM:SS
-                mCountdownTextView.setText(String.format("%02d:%02d:%02d",
-                                                         numIntervalsRemaining/(60*60),
-                                                         numIntervalsRemaining/(60)%60,
-                                                         numIntervalsRemaining%60));
-                System.out.println("    out countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
-            }
-        };
-        long alarmTimeMillis = mPrefs.getLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, 0);
-        long nowMillis = System.currentTimeMillis();
-        long millisTilDone = alarmTimeMillis - nowMillis;
-
-        if (false)
+        // mCountdownTimer *should* be null at this point,
+        // but who knows whether we can trust that onPause/onResume's alternate.
+        if (mCountDownTimer != null)
         {
-            // Can uncomment one of the following to test
-            //long millisTilDone = 10000; // 10 seconds
-            //long millisTilDone = 10500; // 10.5 seconds
-            //long millisTilDone = 20500; // 20.5 seconds
+            Log.e(LassieBotService.TAG, "mCountDownTimer was unexpectedly non-null in onResume");
+            mCountDownTimer.cancel(); // who knows what state it was in
         }
-
-        long targetTimeMillis = nowMillis + millisTilDone;
-        long intervalMillis = 1000; // 1 second, of course
-        mCountDownTimer.start(millisTilDone, intervalMillis);
+        else
+        {
+            mCountDownTimer = new BetterCountDownTimer() {
+                @Override
+                public void onTick(long numIntervalsRemaining)
+                {
+                    System.out.println("                in countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
+                    // HHH:MM:SS
+                    mCountdownTextView.setText(String.format("%d:%02d:%02d",
+                                                             numIntervalsRemaining/(60*60),
+                                                             numIntervalsRemaining/(60)%60,
+                                                             numIntervalsRemaining%60));
+                    System.out.println("                out countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
+                }
+            };
+        }
+        boolean running = mPrefs.getBoolean(LassieBotService.PREFS_KEY_RUNNING, false);
+        if (running)
+        {
+            long alarmTimeMillis = mPrefs.getLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, 0);
+            mCountDownTimer.start(alarmTimeMillis, 1000);
+        }
+        else
+        {
+            mCountdownTextView.setText(""); // clear possibly stale value
+        }
         System.out.println("    out LassieBotActivity.onResume");
-    } // onPause
+    } // onResume
 
     @Override
     protected void onPause() {
@@ -213,7 +250,7 @@ public class LassieBotActivity extends Activity {
             mCountDownTimer.cancel();
             mCountDownTimer = null;
         }
-        mCountdownTextView.setText(""); // so it doesn't show up with stale value next time
+        mCountdownTextView.setText(""); // clear possibly stale value
         System.out.println("    out LassieBotActivity.onPause");
     } // onPause
 
@@ -282,31 +319,42 @@ public class LassieBotActivity extends Activity {
                 System.out.println("        in onSharedPreferenceChanged");
 
                 // CBB: get this the hell out of here. communicate via broadcast messages or something, not a shared preference!
-                if(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS.equals(key))
-                {
-                    System.out.println("          PREFS_KEY_ALARMTIME_MILLIS: reset countdown display");
+                if(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS.equals(key)) {
+                    System.out.println("          PREFS_KEY_ALARMTIME_MILLIS: reset countdown display if running");
 
-                    long nowMillis = System.currentTimeMillis();
-                    long alarmTimeMillis = prefs.getLong(key, nowMillis);
-                    long millisTilAlarm = alarmTimeMillis - nowMillis;
-                    long secondsTilAlarmRoundedUp = (millisTilAlarm+999)/1000;
-                    if (mCountDownTimer != null) // if between onResume() and onPause()
-                    {
-                        mCountDownTimer.cancel();
-                        mCountDownTimer.start(millisTilAlarm, 1000);
-
-                        // HHH:MM:SS
-                        mCountdownTextView.setText(String.format("%02d:%02d:%02d",
-                                                                 secondsTilAlarmRoundedUp/(60*60),
-                                                                 secondsTilAlarmRoundedUp/(60)%60,
-                                                                 secondsTilAlarmRoundedUp%60));
+                    // Generally this pref only gets set by the service
+                    // so we won't get here unless the service is running,
+                    // but double-check.
+                    boolean running = mPrefs.getBoolean(LassieBotService.PREFS_KEY_RUNNING, false);
+                    if (running) {
+                        long alarmTimeMillis = prefs.getLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, 0L);
+                        if (mCountDownTimer != null) { // if between onResume() and onPause()
+                            mCountDownTimer.cancel();
+                            mCountDownTimer.start(alarmTimeMillis, 1000);
+                        }
                     }
+                    return;
                 }
 
-                if(!LassieBotService.PREFS_KEY_RUNNING.equals(key))
+                if(!LassieBotService.PREFS_KEY_RUNNING.equals(key)) {
+                    System.out.println("        out onSharedPreferenceChanged (key is not PREFS_KEY_RUNNING)");
                     return;
+                }
                 System.out.println("          PREFS_KEY_RUNNING: toggling running indicator");
-                toggle.setChecked(prefs.getBoolean(key, false));
+
+                boolean running = prefs.getBoolean(key, false);
+                toggle.setChecked(running);
+                if (running) {
+                    // It looks like the service just started,
+                    // in which case it should momentarily set PREFS_KEY_ALARMTIME_MILLIS
+                    // which will cause us to update the countdown display,
+                    // but clear it first anyway in case things are not quite
+                    // as we expect.
+                    mCountdownTextView.setText("");
+                } else {
+                    mCountDownTimer.cancel();
+                    mCountdownTextView.setText("");
+                }
                 System.out.println("        out onSharedPreferenceChanged");
             }
         };
