@@ -35,8 +35,22 @@ public class LassieBotActivity extends Activity {
     private boolean mHaveICEs;
     private Intent mServiceIntent;
 
+    protected void onResume() {
+        System.out.println("    in LassieBotActivity.onResume");
+        super.onResume();
+        System.out.println("    out LassieBotActivity.onResume");
+    } // onPause
+
+    @Override
+    protected void onPause() {
+        System.out.println("    in LassieBotActivity.onPause");
+        super.onPause();
+        System.out.println("    out LassieBotActivity.onPause");
+    } // onPause
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        System.out.println("    in LassieBotActivity.onCreate");
         super.onCreate(savedInstanceState);
         mServiceIntent = new Intent(LassieBotActivity.this, LassieBotService.class);
         mPrefs = getSharedPreferences(LassieBotService.PREFS_NAME, LassieBotService.PREFS_SHARE_MODE);
@@ -49,7 +63,10 @@ public class LassieBotActivity extends Activity {
         intSpinner.addListener(new IntSpinnerListener() {
             @Override
             public void valueChanged(int new_val) {
+                System.out.println("        in intSpinner valueChanged");
+                System.out.println("          new_val = "+new_val);
                 mPrefs.edit().putInt(LassieBotService.PREFS_KEY_TIMEOUT_HOURS, new_val).commit();
+                System.out.println("        out intSpinner valueChanged");
             }
         });
         // Initialize configuration controls. 
@@ -57,9 +74,11 @@ public class LassieBotActivity extends Activity {
         configureCheckBox.setOnCheckedChangeListener(new OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                System.out.println("        in configureCheckBox onCheckChanged");
                 LassieBotService.CONFIGURE = isChecked;
                 mPrefs.edit().putBoolean(LassieBotService.PREFS_KEY_CONFIGURE, isChecked).commit();
                 updateControls();
+                System.out.println("        out configureCheckBox onCheckChanged");
             }
         });
 
@@ -67,17 +86,21 @@ public class LassieBotActivity extends Activity {
         toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean toggleChecked) {
+                System.out.println("        in toggle onCheckChanged");
                 if(toggleChecked)
                     startService(mServiceIntent);
                 else
                     stopService(mServiceIntent);
                 updateControls();
+                System.out.println("        out toggle onCheckChanged");
             }
         });
         // Setting a dummy click listener enables default button click sound. Go figure.
         toggle.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
+                System.out.println("        in toggle onClick");
+                System.out.println("        out toggle onClick");
             }
         });
         // Listen for service running state changes. Most of the time the changes come from
@@ -86,12 +109,17 @@ public class LassieBotActivity extends Activity {
         runningListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
             @Override
             public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
+                System.out.println("        in onSharedPreferenceChanged");
+
                 if(!LassieBotService.PREFS_KEY_RUNNING.equals(key))
                     return;
+                System.out.println("          PREFS_KEY_RUNNING: toggling running indicator");
                 toggle.setChecked(prefs.getBoolean(key, false));
+
+                System.out.println("        out onSharedPreferenceChanged");
             }
         };
-        mPrefs.registerOnSharedPreferenceChangeListener(runningListener);
+        mPrefs.registerOnSharedPreferenceChangeListener(runningListener); // XXX does the listener go off even when we're not in foreground? argh, yes! that's not very principled.  however if it was just to check running, then it's probably ok, since the service isn't going to be going up and down much when activity is not in foreground.
         // Initialize service.
         updateControls();
         // Note: The pref_running value can be out of sync with sys_running because the
@@ -108,7 +136,9 @@ public class LassieBotActivity extends Activity {
         ((Button) findViewById(R.id.refresh)).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
+                System.out.println("        in refresh onClick");
                 updateControls();
+                System.out.println("        out refresh onClick");
             }
         });
 
@@ -174,6 +204,7 @@ public class LassieBotActivity extends Activity {
                 updateControls();
             }
         });
+        System.out.println("    out LassieBotActivity.onCreate");
     } // end onCreate()
 
     private void updateControls() {
@@ -232,6 +263,7 @@ public class LassieBotActivity extends Activity {
     } // end updateContacts()
 
     private Set<String> getICEPhoneNumbers() {
+        System.out.println("            in getICEPhoneNumbers");
         String phone_kind = ContactsContract.CommonDataKinds.Phone.DATA;
         Cursor contacts = EmailUtils.buildFilteredPhoneCursor(this, LassieBotService.ICE_PREFIX);
         int count = contacts.getCount();
@@ -248,9 +280,11 @@ public class LassieBotActivity extends Activity {
                 System.out.println(phone);
             } while(contacts.moveToNext());
         }
+        System.out.println("            out getICEPhoneNumbers");
         return numbers;
     }
 
+    // XXX never used at the moment
     private Set<String> getICEAddresses() {
         String email_kind = ContactsContract.CommonDataKinds.Email.DATA;
         Cursor contacts = EmailUtils.buildFilteredEmailCursor(this, LassieBotService.ICE_PREFIX);

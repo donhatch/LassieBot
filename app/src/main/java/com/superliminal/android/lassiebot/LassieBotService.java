@@ -44,6 +44,7 @@ public class LassieBotService extends Service {
         PREFS_KEY_ICE_PHONES = "Phones",
         PREFS_KEY_ICE_ADDRESSES = "Emails",
         PREFS_KEY_TEST = "do test";
+
     static final String ICE_PREFIX = "ICE:";
     static final String TAG = "lert";
     static final char NAME_PHONE_SEPERATOR = '\u2013';
@@ -74,6 +75,8 @@ public class LassieBotService extends Service {
         "Their mobile device has not moved in a long time. " +
         "You should contact them now. ";
 
+    private static final int mVerboseLevel = 1;
+
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
         private boolean doCountdown = true;
@@ -83,6 +86,7 @@ public class LassieBotService extends Service {
         }
         @Override
         public void run() {
+            if (mVerboseLevel >= 1) System.out.println("        in LertAlarm.run");
             // If the timer goes off while charging and not "disabled while charging", just quietly restart it.
             // This is so alarms will not be triggered while the user is asleep
             // or otherwise not occasionally interacting physically with their device.
@@ -93,6 +97,7 @@ public class LassieBotService extends Service {
                 int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
                 if(status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL) {
                     reschedule();
+                    if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run (early because battery charging or full or something)");
                     return;
                 }
             }
@@ -112,6 +117,7 @@ public class LassieBotService extends Service {
                         // Phone moved during countdown so abort the alert.
                         tick.pause();
                         vibes.cancel();
+                        if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run (early because phone moved during countdown)");
                         return;
                     }
                 }
@@ -162,23 +168,56 @@ public class LassieBotService extends Service {
             SensorManager sensorMgr = (SensorManager) getSystemService(SENSOR_SERVICE);
             sensorMgr.unregisterListener(mShakeSensor);
             stopSelf(); // My work here is done. I hope they're OK.
-        }
-    };
+            if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run");
+        } // run
+    }; // LertAlarm
 
     private class MyShakeSensor implements SensorEventListener {
+        public long mLastShakeNanos = System.nanoTime();
+        public long mLastShakeTimestampNanos = System.nanoTime();
         public long mLastStrongShake = System.currentTimeMillis();
 
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {}
 
+        private String nanosSeparated(long nanos)
+        {
+            String answer = String.format("%d.%03d %03d %03d",
+                                          nanos/(1000*1000*1000),
+                                          nanos/(1000*1000)%1000,
+                                          nanos/1000%1000,
+                                          nanos%1000);
+            return answer;
+        }
+
         @Override
         public void onSensorChanged(SensorEvent event) {
-            long now = System.currentTimeMillis();
+            long nowNanos = System.nanoTime(); // as soon as possible
+            if (mVerboseLevel >= 2) System.out.println("        in onSensorChanged");
+            long nowTimestampNanos = event.timestamp;
+            long now = System.currentTimeMillis(); // TODO: get it from event instead, I think
+            long nanosSinceLastShake = nowNanos - mLastShakeNanos;
             long dur = now - mLastStrongShake;
+            if (mVerboseLevel >= 2) System.out.println("          "+nanosSeparated(nowNanos-mLastShakeNanos)+" seconds since last shake from timestamp");
+            if (mVerboseLevel >= 2) System.out.println("          "+nanosSeparated(nowTimestampNanos-mLastShakeTimestampNanos)+" seconds since last shake from System.nanoTime()");
+            if (mVerboseLevel >= 2) System.out.println("          dur = "+dur+" (since last strong shake)");
+            {
+                int type = event.sensor.getType();
+                SensorManager sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+                Sensor sensor = sensorManager.getDefaultSensor(type);
+                if (mVerboseLevel >= 2) System.out.println("          event.sensor.getType() = "+type+" (\""+sensor.getName()+")\"");
+            }
+            mLastShakeNanos = nowNanos;
+            mLastShakeTimestampNanos = nowTimestampNanos;
+
             if(dur < DURATION_THRESHOLD_MILLIS)
+            {
+                if (mVerboseLevel >= 2) System.out.println("        out onSensorChanged (early because \"There's no point doing everything below many times a second.\"");
                 return; // There's no point doing everything below many times a second.
+            }
             boolean do_reset = false;
             float force = (float) Math.sqrt(Vec_h._NORMSQRD3(event.values));
+            if (mVerboseLevel >= 2) System.out.println("          force = "+force);
             if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
                 // Linear force in m/s^2. BTW, what is a square second anyway?
                 if(force > ACCELEROMETER_THRESHOLD) {
@@ -203,22 +242,26 @@ public class LassieBotService extends Service {
             } // end if(gyroscope)
             if(do_reset)
                 mLastStrongShake = now;
+            if (mVerboseLevel >= 2) System.out.println("        out onSensorChanged");
         }
     }
 
     private MyShakeSensor mShakeSensor = new MyShakeSensor();
 
     private void reschedule() {
+        if (mVerboseLevel >= 1) System.out.println("            in LassieBotService.reschedule");
         // Synchronizing below may do nothing but the alarm has gone off during testing and
         // one possible reason could be a race condition where an old timer was not canceled
         // before being replaced, So long as this is the only place that creates the timers,
         // synchronizing on them should disallow that error.
+
         synchronized(deadManSwitch) {
             deadManSwitch.cancel();
             deadManSwitch.purge();
             deadManSwitch = new Timer();
             deadManSwitch.schedule(new LertAlarm(), TIMEOUT_MILLIS);
         }
+        if (mVerboseLevel >= 1) System.out.println("            out LassieBotService.reschedule");
     }
 
     private void test() {
@@ -234,6 +277,7 @@ public class LassieBotService extends Service {
 
     @Override
     public void onCreate() {
+        if (mVerboseLevel >= 1) System.out.println("    in LassieBotService.onCreate");
         Log.d(TAG, "obtaining wake lock");
         wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Lert Tag");
         dink = MediaPlayer.create(this, R.raw.dink);
@@ -276,10 +320,12 @@ public class LassieBotService extends Service {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, PREFS_SHARE_MODE);
         prefs.registerOnSharedPreferenceChangeListener(mPrefListener);
         vibes = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (mVerboseLevel >= 1) System.out.println("    out LassieBotService.onCreate");
     } // end onCreate()
 
     @Override
     public void onDestroy() {
+        if (mVerboseLevel >= 1) System.out.println("    in LassieBotService.onDestroy");
         Log.d(TAG, "releasing wake lock");
         wakeLock.release();
         //Toast.makeText(this, "Lert Service stopped", Toast.LENGTH_LONG).show();
@@ -287,10 +333,12 @@ public class LassieBotService extends Service {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, PREFS_SHARE_MODE);
         prefs.unregisterOnSharedPreferenceChangeListener(mPrefListener);
         prefs.edit().putBoolean(PREFS_KEY_RUNNING, false).commit();
+        if (mVerboseLevel >= 1) System.out.println("    out LassieBotService.onDestroy");
     }
 
     @Override
     public int onStartCommand(Intent startIntent, int flags, int startId) {
+        if (mVerboseLevel >= 1) System.out.println("    in LassieBotService.onStartCommand");
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, PREFS_SHARE_MODE);
         prefs.edit().putBoolean(PREFS_KEY_RUNNING, true).commit();
         //Toast.makeText(this, "Lert Service started", Toast.LENGTH_LONG).show();
@@ -313,11 +361,15 @@ public class LassieBotService extends Service {
         // Immediately pick up any stored timeout preference.
         mPrefListener.onSharedPreferenceChanged(prefs, PREFS_KEY_TIMEOUT_HOURS);
 
-        return super.onStartCommand(startIntent, flags, startId);
+        int answer = super.onStartCommand(startIntent, flags, startId);
+        if (mVerboseLevel >= 1) System.out.println("    out LassieBotService.onStartCommand");
+        return answer;
     }
 
     @Override
     public IBinder onBind(Intent intent) {
+        if (mVerboseLevel >= 1) System.out.println("    in LassieBotService.onBind");
+        if (mVerboseLevel >= 1) System.out.println("    out LassieBotService.onBind");
         return null;
     }
 }
