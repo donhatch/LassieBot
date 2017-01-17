@@ -1,9 +1,9 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/fill">
-    <LinearLayout 
+    <LinearLayout
         style="@style/fill"
         android:padding="5dp">
-        
+
         <!-- Emergency Contacts -->
         <RelativeLayout
             style="@style/wide">
@@ -54,7 +54,7 @@
                 style="@style/SuperliminalLabelTextViewStyle"
                 android:text="Emergency Contacts" />
         </RelativeLayout>
-        
+
         <!-- Time-out period -->
         <RelativeLayout
             style="@style/wide">
@@ -62,7 +62,7 @@
                 style="@style/wide"
                 android:layout_marginTop="10dip"
                 android:padding="10dip"
-                android:background="@drawable/border" 
+                android:background="@drawable/border"
                 android:orientation="horizontal">
                 <!-- This injects an IntSpinner instance. -->
                 <include
@@ -89,11 +89,11 @@
                 android:paddingRight="10dp"
                 android:text="Timeout Hours" />
         </RelativeLayout>
-        
-        <View 
+
+        <View
             android:layout_width="fill_parent"
             android:layout_height="20dp" />
-    
+
         <!-- Master On/Off button -->
         <ToggleButton
             android:id="@+id/toggle"
@@ -121,15 +121,14 @@
 
             <CheckBox
                 android:id="@+id/calibrate"
-                style="@style/wrap"
+                style="@style/wide"
                 android:textColor="#fff"
                 android:textOn="Calibrate"
                 android:layout_weight="1" />
 
             <TextView
                 android:text="1:59:59"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                style="@style/wide"
                 android:id="@+id/countdown"
                 android:layout_weight="1"
                 android:gravity="right"
@@ -171,7 +170,7 @@
                             style="@style/wrap" />
                         <SeekBar
                             android:id="@+id/gyro_threshold"
-                            style="@style/wide" 
+                            style="@style/wide"
                             android:max="100"
                             android:progress="50"/>
                     </LinearLayout>
@@ -195,6 +194,6 @@
                 </LinearLayout>
             </LinearLayout>
         </RelativeLayout>
-        
+
     </LinearLayout>
 </ScrollView>
