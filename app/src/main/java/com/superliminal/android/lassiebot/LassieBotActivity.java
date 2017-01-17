@@ -362,7 +362,8 @@ public class LassieBotActivity extends Activity {
                     // as we expect.
                     mCountdownTextView.setText("");
                 } else {
-                    mCountDownTimer.cancel();
+                    if (mCountDownTimer != null)
+                        mCountDownTimer.cancel();
                     mCountdownTextView.setText("");
                 }
                 System.out.println("        out onSharedPreferenceChanged");
