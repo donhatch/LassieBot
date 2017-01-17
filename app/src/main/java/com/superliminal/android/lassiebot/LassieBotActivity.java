@@ -37,6 +37,7 @@ public class LassieBotActivity extends Activity {
     private boolean mHaveICEs;
     private Intent mServiceIntent;
 
+    private final boolean mShowCountdownTimer = true; // set this to false to avoid the countdown display
     private TextView mCountdownTextView;
     private BetterCountDownTimer mCountDownTimer = null;
 
@@ -202,6 +203,14 @@ public class LassieBotActivity extends Activity {
     protected void onResume() {
         System.out.println("    in LassieBotActivity.onResume");
         super.onResume();
+
+        if (!mShowCountdownTimer)
+        {
+            mCountdownTextView.setText(""); // clear any stale value from last time
+            System.out.println("    out LassieBotActivity.onResume (without making countdown timer)");
+            return;
+        }
+
         // Activity became visible.
         // Enable the displayed countdown timer.
         // mCountdownTimer *should* be null at this point,
@@ -333,6 +342,7 @@ public class LassieBotActivity extends Activity {
                             mCountDownTimer.start(alarmTimeMillis, 1000);
                         }
                     }
+                    System.out.println("        out onSharedPreferenceChanged (key was PREFS_KEY_ALARMTIME_MILLIS)");
                     return;
                 }
 

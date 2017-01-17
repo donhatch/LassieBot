@@ -27,6 +27,7 @@ import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.OrientationListener;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -67,7 +68,9 @@ public class LassieBotService extends Service {
     private static final int DURATION_THRESHOLD_MILLIS = 1500; // Minimum time between resets.
     private static final int NAME_LIMIT = 20;
     private MediaPlayer dink, beep, buzz, tick;
+
     private static Timer deadManSwitch = new Timer(); // Must be static or we get lots of them!
+
     private WakeLock wakeLock;
     private OnSharedPreferenceChangeListener mPrefListener; // Must be retained as a member or it can be GC'ed.
     private Vibrator vibes;
@@ -82,9 +85,14 @@ public class LassieBotService extends Service {
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
         private boolean doCountdown = true;
-        public LertAlarm() {}
+        public LertAlarm() {
+            if (mVerboseLevel >= 1) System.out.println("        in LertAlarm ctor (doCountdown="+doCountdown+" by default)");
+            if (mVerboseLevel >= 1) System.out.println("        out LertAlarm ctor (doCountdown="+doCountdown+" by default)");
+        }
         public LertAlarm(boolean doCountdown){
+            if (mVerboseLevel >= 1) System.out.println("        in LertAlarm ctor (doCountdown="+doCountdown+")");
             this.doCountdown = doCountdown;
+            if (mVerboseLevel >= 1) System.out.println("        out LertAlarm ctor (doCountdown="+doCountdown+")");
         }
         @Override
         public void run() {
@@ -105,6 +113,7 @@ public class LassieBotService extends Service {
             }
 
             if(doCountdown) {
+                if (mVerboseLevel >= 1) System.out.println("          doing countdown!");
                 // Start the countdown sound.
                 tick.start();
                 vibes.vibrate(new long[] {500, 500}, 0);
@@ -251,6 +260,8 @@ public class LassieBotService extends Service {
 
     private MyShakeSensor mShakeSensor = new MyShakeSensor();
 
+    private AtomicInteger nLockHolders = new AtomicInteger(0);
+
     private void reschedule() {
         if (mVerboseLevel >= 1) System.out.println("            in LassieBotService.reschedule");
         // Synchronizing below may do nothing but the alarm has gone off during testing and
@@ -260,14 +271,27 @@ public class LassieBotService extends Service {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, PREFS_SHARE_MODE); // CBB: put this in a member
         long alarmTimeMillis = System.currentTimeMillis() + TIMEOUT_MILLIS;
+        if (mVerboseLevel >= 1) System.out.println("              putting shared pref PREFS_KEY_ALARMTIME_MILLIS");
         prefs.edit().putLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, alarmTimeMillis).commit();
 
+        if (mVerboseLevel >= 1) System.out.println("              acquiring lock");
         synchronized(deadManSwitch) {
+            if (mVerboseLevel >= 1) System.out.println("              acquired lock");
+            int nLockHoldersSnapshot = nLockHolders.incrementAndGet();
+            if (nLockHoldersSnapshot > 1)
+            {
+                System.out.println("HEY!!!!!!!! WTF? number of lock holders = "+nLockHoldersSnapshot);
+                throw new AssertionError("WTF? num lock holders = "+nLockHoldersSnapshot);
+            }
+
             deadManSwitch.cancel();
             deadManSwitch.purge();
             deadManSwitch = new Timer();
             deadManSwitch.schedule(new LertAlarm(), TIMEOUT_MILLIS);
+            nLockHolders.decrementAndGet();
+            if (mVerboseLevel >= 1) System.out.println("              releasing lock");
         }
+        if (mVerboseLevel >= 1) System.out.println("              released lock");
         if (mVerboseLevel >= 1) System.out.println("            out LassieBotService.reschedule");
     }
 
