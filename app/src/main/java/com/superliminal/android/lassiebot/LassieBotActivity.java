@@ -40,6 +40,7 @@ public class LassieBotActivity extends Activity {
     private final boolean mShowCountdownTimer = true; // set this to false to avoid the countdown display
     private TextView mCountdownTextView;
     private BetterCountDownTimer mCountDownTimer = null;
+    private final static int mVerboseLevel = 1;
 
 
     //
@@ -96,8 +97,8 @@ public class LassieBotActivity extends Activity {
             mRunnable = new Runnable() {
                 @Override
                 public void run() {
-                    System.out.println("            in BetterCountDownTimer mRunnable.run");
-                    System.out.println("              decrementing mTicksRemaining "+mTicksRemaining+" -> "+(mTicksRemaining-1));
+                    if (mVerboseLevel >= 2) System.out.println("            in BetterCountDownTimer mRunnable.run");
+                    if (mVerboseLevel >= 2) System.out.println("              decrementing mTicksRemaining "+mTicksRemaining+" -> "+(mTicksRemaining-1));
                     // Must decrement by at least one, per contract
                     --mTicksRemaining;
                     if (mTicksRemaining > 0)
@@ -117,7 +118,7 @@ public class LassieBotActivity extends Activity {
                         if (ticksRemainingAdjusted < mTicksRemaining
                          && ticksRemainingAdjusted >= 0)
                         {
-                            System.out.println("              delayed! decrementing mTicksRemaining "+mTicksRemaining+" -> "+ticksRemainingAdjusted);
+                            if (mVerboseLevel >= 2) System.out.println("              delayed! decrementing mTicksRemaining "+mTicksRemaining+" -> "+ticksRemainingAdjusted);
                             mTicksRemaining = ticksRemainingAdjusted;
                         }
                     }
@@ -129,11 +130,11 @@ public class LassieBotActivity extends Activity {
                         // as close to the postDelayed() as we can get.
                         long nowMillis = System.currentTimeMillis();
                         long millisTilNextTick = Math.max(0, nextTickTimeMillis - nowMillis);
-                        System.out.println("          nextTickTimeMillis = "+nextTickTimeMillis);
-                        System.out.println("          calling mHandler.postDelayed(millisTilNextTick="+millisTilNextTick+")");
+                        if (mVerboseLevel >= 2) System.out.println("              nextTickTimeMillis = "+nextTickTimeMillis);
+                        if (mVerboseLevel >= 2) System.out.println("              calling mHandler.postDelayed(millisTilNextTick="+millisTilNextTick+")");
                         mHandler.postDelayed(mRunnable, millisTilNextTick);
                     }
-                    System.out.println("            out BetterCountDownTimer mRunnable.run");
+                    if (mVerboseLevel >= 2) System.out.println("            out BetterCountDownTimer mRunnable.run");
                 }
             };
             mStarted = false;
@@ -226,13 +227,13 @@ public class LassieBotActivity extends Activity {
                 @Override
                 public void onTick(long numIntervalsRemaining)
                 {
-                    System.out.println("                in countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
+                    if (mVerboseLevel >= 2) System.out.println("                in countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
                     // HHH:MM:SS
                     mCountdownTextView.setText(String.format("%d:%02d:%02d",
                                                              numIntervalsRemaining/(60*60),
                                                              numIntervalsRemaining/(60)%60,
                                                              numIntervalsRemaining%60));
-                    System.out.println("                out countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
+                    if (mVerboseLevel >= 2) System.out.println("                out countDownTimer.onTick(numIntervalsRemaining="+numIntervalsRemaining+")");
                 }
             };
         }
@@ -377,7 +378,7 @@ public class LassieBotActivity extends Activity {
         // In general use, that would be a terrible thing but it does happen 
         // during testing when restarting the app in Eclipse.
         // Log the error and restart service to get back in sync.
-        if(shouldBeRunning()) {
+        if(shouldBeRunning()) { // i.e. "not running but should be"
             Log.e(LassieBotService.TAG, "Shared pref out of sync with service state!");
             startService(mServiceIntent);
         }
@@ -483,10 +484,15 @@ public class LassieBotActivity extends Activity {
     }
 
     private boolean shouldBeRunning() {
+        System.out.println("        in shouldBeRunning (i.e. 'not running but should be')");
         // not isRunning() ?
         boolean pref_running = mPrefs.getBoolean(LassieBotService.PREFS_KEY_RUNNING, false);
+        System.out.println("          pref_running = "+pref_running);
         boolean sys_running = isServiceRunning(LassieBotService.class, this);
-        return pref_running && !sys_running;
+        System.out.println("          sys_running = "+sys_running);
+        boolean answer = pref_running && !sys_running;
+        System.out.println("        out shouldBeRunning (i.e. 'not running but should be'), returning "+answer);
+        return answer;
     }
 
     private boolean updateContacts() {

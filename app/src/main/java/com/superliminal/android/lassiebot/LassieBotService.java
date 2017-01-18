@@ -126,6 +126,7 @@ public class LassieBotService extends Service {
                     Log.w(TAG, "diff = " + (counting_start - mShakeSensor.mLastStrongShake));
                     if(mShakeSensor.mLastStrongShake > counting_start) {
                         // Phone moved during countdown so abort the alert.
+                        if (mVerboseLevel >= 1) System.out.println("          ABORTING final countdown because phone was shaken!");
                         tick.pause();
                         vibes.cancel();
                         if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run (early because phone moved during countdown)");
@@ -177,8 +178,13 @@ public class LassieBotService extends Service {
             });
             buzz.start(); // One last, loud "time-out" buzzer announcing that the messages were sent.
             SensorManager sensorMgr = (SensorManager) getSystemService(SENSOR_SERVICE);
+            if (mVerboseLevel >= 1) System.out.println("          sensorMgr = "+sensorMgr);
+            if (mVerboseLevel >= 1) System.out.println("          unregistering shake listener");
             sensorMgr.unregisterListener(mShakeSensor);
+            if (mVerboseLevel >= 1) System.out.println("          unregistered shake listener");
+            if (mVerboseLevel >= 1) System.out.println("          calling stopSelf()");
             stopSelf(); // My work here is done. I hope they're OK.
+            if (mVerboseLevel >= 1) System.out.println("          returned from stopSelf()");
             if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run");
         } // run
     }; // LertAlarm
