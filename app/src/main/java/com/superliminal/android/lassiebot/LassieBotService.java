@@ -186,7 +186,7 @@ public class LassieBotService extends Service {
                     do_reset = true;
                     reschedule();
                     if(CONFIGURE) {
-                        dink.start();
+                        beep.start();
                         Log.d(LassieBotService.TAG, "accel force: " + force);
                     }
                 }
@@ -197,7 +197,7 @@ public class LassieBotService extends Service {
                     do_reset = true;
                     reschedule();
                     if(CONFIGURE) {
-                        beep.start();
+                        dink.start();
                         Log.d(LassieBotService.TAG, "gyro force: " + force);
                     }
                 }
