@@ -66,6 +66,7 @@ public class LassieBotService extends Service {
     private static final int NAME_LIMIT = 20;
     private MediaPlayer dink, beep, buzz, tick;
     private static Timer deadManSwitch = new Timer(); // Must be static or we get lots of them!
+    private final static Object TIMER_SYNC = new Object();
     private WakeLock wakeLock;
     private OnSharedPreferenceChangeListener mPrefListener; // Must be retained as a member or it can be GC'ed.
     private Vibrator vibes;
@@ -79,7 +80,7 @@ public class LassieBotService extends Service {
 
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
-        private boolean doCountdown = true;
+        private boolean doCountdown = false;
         public LertAlarm() {}
         public LertAlarm(boolean doCountdown){
             this.doCountdown = doCountdown;
@@ -170,7 +171,7 @@ public class LassieBotService extends Service {
             stopSelf(); // My work here is done. I hope they're OK.
             if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run");
         } // run
-    }; // LertAlarm
+    } // LertAlarm
 
     private class MyShakeSensor implements SensorEventListener {
         public long mLastShakeNanos = System.nanoTime();
@@ -224,7 +225,7 @@ public class LassieBotService extends Service {
                     do_reset = true;
                     reschedule();
                     if(CONFIGURE) {
-                        dink.start();
+                        beep.start();
                         Log.d(LassieBotService.TAG, "accel force: " + force);
                     }
                 }
@@ -235,7 +236,7 @@ public class LassieBotService extends Service {
                     do_reset = true;
                     reschedule();
                     if(CONFIGURE) {
-                        beep.start();
+                        dink.start();
                         Log.d(LassieBotService.TAG, "gyro force: " + force);
                     }
                 }
@@ -253,13 +254,13 @@ public class LassieBotService extends Service {
         // Synchronizing below may do nothing but the alarm has gone off during testing and
         // one possible reason could be a race condition where an old timer was not canceled
         // before being replaced, So long as this is the only place that creates the timers,
-        // synchronizing on them should disallow that error.
-
-        synchronized(deadManSwitch) {
+        // synchronization may disallow that error.
+        synchronized(TIMER_SYNC) {
             deadManSwitch.cancel();
             deadManSwitch.purge();
-            deadManSwitch = new Timer();
-            deadManSwitch.schedule(new LertAlarm(), TIMEOUT_MILLIS);
+            Timer new_timer = new Timer();
+            new_timer.schedule(new LertAlarm(), TIMEOUT_MILLIS);
+            deadManSwitch = new_timer;
         }
         if (mVerboseLevel >= 1) System.out.println("            out LassieBotService.reschedule");
     }
