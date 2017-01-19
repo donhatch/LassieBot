@@ -70,7 +70,7 @@ public class LassieBotService extends Service {
     private MediaPlayer dink, beep, buzz, tick;
 
     private static Timer deadManSwitch = new Timer(); // Must be static or we get lots of them!
-
+    private final static Object TIMER_SYNC = new Object();
     private WakeLock wakeLock;
     private OnSharedPreferenceChangeListener mPrefListener; // Must be retained as a member or it can be GC'ed.
     private Vibrator vibes;
@@ -84,7 +84,7 @@ public class LassieBotService extends Service {
 
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
-        private boolean doCountdown = true;
+        private boolean doCountdown = false;
         public LertAlarm() {
             if (mVerboseLevel >= 1) System.out.println("        in LertAlarm ctor (doCountdown="+doCountdown+" by default)");
             if (mVerboseLevel >= 1) System.out.println("        out LertAlarm ctor (doCountdown="+doCountdown+" by default)");
@@ -187,7 +187,7 @@ public class LassieBotService extends Service {
             if (mVerboseLevel >= 1) System.out.println("          returned from stopSelf()");
             if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run");
         } // run
-    }; // LertAlarm
+    } // LertAlarm
 
     private class MyShakeSensor implements SensorEventListener {
         public long mLastShakeNanos = System.nanoTime();
@@ -242,7 +242,7 @@ public class LassieBotService extends Service {
                     do_reset = true;
                     reschedule();
                     if(CONFIGURE) {
-                        dink.start();
+                        beep.start();
                         Log.d(LassieBotService.TAG, "accel force: " + force);
                     }
                 }
@@ -253,7 +253,7 @@ public class LassieBotService extends Service {
                     do_reset = true;
                     reschedule();
                     if(CONFIGURE) {
-                        beep.start();
+                        dink.start();
                         Log.d(LassieBotService.TAG, "gyro force: " + force);
                     }
                 }
@@ -292,8 +292,9 @@ public class LassieBotService extends Service {
 
             deadManSwitch.cancel();
             deadManSwitch.purge();
-            deadManSwitch = new Timer();
-            deadManSwitch.schedule(new LertAlarm(), TIMEOUT_MILLIS);
+            Timer new_timer = new Timer();
+            new_timer.schedule(new LertAlarm(), TIMEOUT_MILLIS);
+            deadManSwitch = new_timer;
             nLockHolders.decrementAndGet();
             if (mVerboseLevel >= 1) System.out.println("              releasing lock");
         }
