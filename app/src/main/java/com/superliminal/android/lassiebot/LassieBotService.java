@@ -77,7 +77,7 @@ public class LassieBotService extends Service {
 
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
-        private boolean doCountdown = false;
+        private boolean doCountdown = true;
         public LertAlarm() {}
         public LertAlarm(boolean doCountdown){
             this.doCountdown = doCountdown;
