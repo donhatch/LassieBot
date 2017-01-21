@@ -127,7 +127,7 @@ public class LassieBotActivity extends Activity {
         // In general use, that would be a terrible thing but it does happen 
         // during testing when restarting the app in Eclipse.
         // Log the error and restart service to get back in sync.
-        if(shouldBeRunning()) {
+        if(shouldBeRunning()) { // i.e. "not running but should be"
             Log.e(LassieBotService.TAG, "Shared pref out of sync with service state!");
             startService(mServiceIntent);
         }
@@ -233,10 +233,15 @@ public class LassieBotActivity extends Activity {
     }
 
     private boolean shouldBeRunning() {
+        System.out.println("        in shouldBeRunning (i.e. 'not running but should be')");
         // not isRunning() ?
         boolean pref_running = mPrefs.getBoolean(LassieBotService.PREFS_KEY_RUNNING, false);
+        System.out.println("          pref_running = "+pref_running);
         boolean sys_running = isServiceRunning(LassieBotService.class, this);
-        return pref_running && !sys_running;
+        System.out.println("          sys_running = "+sys_running);
+        boolean answer = pref_running && !sys_running;
+        System.out.println("        out shouldBeRunning (i.e. 'not running but should be'), returning "+answer);
+        return answer;
     }
 
     private boolean updateContacts() {

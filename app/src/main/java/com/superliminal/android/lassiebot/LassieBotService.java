@@ -76,14 +76,19 @@ public class LassieBotService extends Service {
         "Their mobile device has not moved in a long time. " +
         "You should contact them now. ";
 
-    private static final int mVerboseLevel = 1;
+    private static final int mVerboseLevel = 1; // 1: just major control functions. 2: and onSensorChanged (a lot of verbosity)
 
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
         private boolean doCountdown = false;
-        public LertAlarm() {}
+        public LertAlarm() {
+            if (mVerboseLevel >= 1) System.out.println("        in LertAlarm ctor (doCountdown="+doCountdown+" by default)");
+            if (mVerboseLevel >= 1) System.out.println("        out LertAlarm ctor (doCountdown="+doCountdown+" by default)");
+        }
         public LertAlarm(boolean doCountdown){
+            if (mVerboseLevel >= 1) System.out.println("        in LertAlarm ctor (doCountdown="+doCountdown+")");
             this.doCountdown = doCountdown;
+            if (mVerboseLevel >= 1) System.out.println("        out LertAlarm ctor (doCountdown="+doCountdown+")");
         }
         @Override
         public void run() {
@@ -104,6 +109,7 @@ public class LassieBotService extends Service {
             }
 
             if(doCountdown) {
+                if (mVerboseLevel >= 1) System.out.println("          doing countdown!");
                 // Start the countdown sound.
                 tick.start();
                 vibes.vibrate(new long[] {500, 500}, 0);
@@ -116,6 +122,7 @@ public class LassieBotService extends Service {
                     Log.w(TAG, "diff = " + (counting_start - mShakeSensor.mLastStrongShake));
                     if(mShakeSensor.mLastStrongShake > counting_start) {
                         // Phone moved during countdown so abort the alert.
+                        if (mVerboseLevel >= 1) System.out.println("          ABORTING final countdown because phone was shaken!");
                         tick.pause();
                         vibes.cancel();
                         if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run (early because phone moved during countdown)");
@@ -167,8 +174,13 @@ public class LassieBotService extends Service {
             });
             buzz.start(); // One last, loud "time-out" buzzer announcing that the messages were sent.
             SensorManager sensorMgr = (SensorManager) getSystemService(SENSOR_SERVICE);
+            if (mVerboseLevel >= 1) System.out.println("          sensorMgr = "+sensorMgr);
+            if (mVerboseLevel >= 1) System.out.println("          unregistering shake listener");
             sensorMgr.unregisterListener(mShakeSensor);
+            if (mVerboseLevel >= 1) System.out.println("          unregistered shake listener");
+            if (mVerboseLevel >= 1) System.out.println("          calling stopSelf()");
             stopSelf(); // My work here is done. I hope they're OK.
+            if (mVerboseLevel >= 1) System.out.println("          returned from stopSelf()");
             if (mVerboseLevel >= 1) System.out.println("        out LertAlarm.run");
         } // run
     } // LertAlarm
@@ -255,13 +267,17 @@ public class LassieBotService extends Service {
         // one possible reason could be a race condition where an old timer was not canceled
         // before being replaced, So long as this is the only place that creates the timers,
         // synchronization may disallow that error.
+        if (mVerboseLevel >= 1) System.out.println("              acquiring lock");
         synchronized(TIMER_SYNC) {
+            if (mVerboseLevel >= 1) System.out.println("              acquired lock");
             deadManSwitch.cancel();
             deadManSwitch.purge();
             Timer new_timer = new Timer();
             new_timer.schedule(new LertAlarm(), TIMEOUT_MILLIS);
             deadManSwitch = new_timer;
+            if (mVerboseLevel >= 1) System.out.println("              releasing lock");
         }
+        if (mVerboseLevel >= 1) System.out.println("              released lock");
         if (mVerboseLevel >= 1) System.out.println("            out LassieBotService.reschedule");
     }
 
