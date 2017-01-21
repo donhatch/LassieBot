@@ -273,7 +273,7 @@ public class LassieBotService extends Service {
         // Synchronizing below may do nothing but the alarm has gone off during testing and
         // one possible reason could be a race condition where an old timer was not canceled
         // before being replaced, So long as this is the only place that creates the timers,
-        // synchronizing on them should disallow that error.
+        // synchronization may disallow that error.
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, PREFS_SHARE_MODE); // CBB: put this in a member
         long alarmTimeMillis = System.currentTimeMillis() + TIMEOUT_MILLIS;
@@ -281,21 +281,13 @@ public class LassieBotService extends Service {
         prefs.edit().putLong(LassieBotService.PREFS_KEY_ALARMTIME_MILLIS, alarmTimeMillis).commit();
 
         if (mVerboseLevel >= 1) System.out.println("              acquiring lock");
-        synchronized(deadManSwitch) {
+        synchronized(TIMER_SYNC) {
             if (mVerboseLevel >= 1) System.out.println("              acquired lock");
-            int nLockHoldersSnapshot = nLockHolders.incrementAndGet();
-            if (nLockHoldersSnapshot > 1)
-            {
-                System.out.println("HEY!!!!!!!! WTF? number of lock holders = "+nLockHoldersSnapshot);
-                throw new AssertionError("WTF? num lock holders = "+nLockHoldersSnapshot);
-            }
-
             deadManSwitch.cancel();
             deadManSwitch.purge();
             Timer new_timer = new Timer();
             new_timer.schedule(new LertAlarm(), TIMEOUT_MILLIS);
             deadManSwitch = new_timer;
-            nLockHolders.decrementAndGet();
             if (mVerboseLevel >= 1) System.out.println("              releasing lock");
         }
         if (mVerboseLevel >= 1) System.out.println("              released lock");
