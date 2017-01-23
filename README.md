@@ -5,9 +5,9 @@ Issues:
      This code in the listener for TIMEOUT_HOURS changes
      turns off the countdown racket but it doesn't stop the countdown:
 
-         'vibes.cancel();
+         vibes.cancel();
          if(tick.isPlaying())
-             tick.pause();'
+             tick.pause();
 
      Probably the only place the racket should be cancelled is where the countdown is actually stopped.
 
@@ -29,7 +29,7 @@ Issues:
        1. Set Hours spinner to 0.  Racket starts, signifiying there's a 30-second countdown in progress.
        2. Set Hours spinner to 1.  Racket stops, but 30-second countdown continues silently.
        3. Set Hours spinner to 0.  Racket starts again. Now there are 2 30-second countdowns in progress.
-       4. Set Hours spinner to 1.  Racket stops, the two 3-second countdowns continue silently.
+       4. Set Hours spinner to 1.  Racket stops, the two 30-second countdowns continue silently.
        (repeat several times if desired, to get as many simultaneous countdowns as desired).
 
       You can verify that there are multiple countdowns happening at once by looking at the logcat screen;
@@ -37,7 +37,7 @@ Issues:
 
       Then additional bad things happen when the first of the threads counts down to 0 and sends the text:
       it then calls stopService() which causes onDestroy() to be called, which causes tick.release()
-      to get called.  Then the second timer thread gets to the end of the countdown
+      to get called.  Then the second timer thread gets to the end of the 30-second countdown
       and calls tick.pause(), which crashes the app because tick has been released.
 
   4. Stopping service does not stop the deadManSwitch.
@@ -57,24 +57,24 @@ Issues:
 
   5. App crashes when 30-second countdown starts when text already sent.
 
-     To reproduce, follow the reproduction steps for 2 ("Changing Hours does not stop an in-progress
+     To reproduce, follow the reproduction steps for Issue #2 ("Changing Hours does not stop an in-progress
      30-second countdown"), through when the text gets sent and the button turns red.
      At that point the services's onDestroy() gets called
      which shuts down its listening for sensors, but its deadManSwitch is still
      running and is impervious to shakes (see Issue #4).
 
      Then wait another minute (assuming you tweaked the source code so "Hours" = minutes)
-     until it tries to start another countdown.
+     until it tries to start another 30-second countdown.
      The application crashes here:
 
-         'E/AndroidRuntime: FATAL EXCEPTION: Timer-5
+         E/AndroidRuntime: FATAL EXCEPTION: Timer-5
            Process: com.superliminal.android.lassiebot, PID: 20571
            java.lang.IllegalStateException
                at android.media.MediaPlayer._start(Native Method)
                at android.media.MediaPlayer.start(MediaPlayer.java:1213)
                at com.superliminal.android.lassiebot.LassieBotService$LertAlarm.run(LassieBotService.java:119)
                at java.util.TimerThread.mainLoop(Timer.java:555)
-               at java.util.TimerThread.run(Timer.java:505)'
+               at java.util.TimerThread.run(Timer.java:505)
 
      This is the call to tick.start() in LertAlarm.run(),
      which is illegal since tick.release() was called from onDestroy() earlier.
@@ -100,6 +100,7 @@ Issues:
      If they are not thread safe, they need to be surrounded by appropriate synchronized().
 
   10. "Off when charging" + Hours=0 = unfriendly cpu-consuming loop.
+
      If you have "Off when charging" checked and set the Hours spinner to 0,
      it goes into an unfriendly cpu-consuming loop, continually calling reschedule()
      and then going off immedietely.
