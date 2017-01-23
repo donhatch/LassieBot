@@ -80,7 +80,7 @@ public class LassieBotService extends Service {
 
     // Code to be run when the dead-man's-switch is triggered.
     private class LertAlarm extends TimerTask {
-        private boolean doCountdown = false;
+        private boolean doCountdown = true;
         public LertAlarm() {
             if (mVerboseLevel >= 1) System.out.println("        in LertAlarm ctor (doCountdown="+doCountdown+" by default)");
             if (mVerboseLevel >= 1) System.out.println("        out LertAlarm ctor (doCountdown="+doCountdown+" by default)");
